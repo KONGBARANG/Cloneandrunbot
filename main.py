@@ -1,22 +1,58 @@
+import os
+import asyncio
+from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from config.settings import BOT_TOKEN
 from handlers.commands import start_command, help_command
 from handlers.messages import handle_normal_message
 
-def main():
-    # បង្កើត Application ដោយប្រើ Token ចេញពី config/settings.py
-    app = Application.builder().token(BOT_TOKEN).build()
+# 🔥 បន្ថែមបណ្ណាល័យ aiohttp ដើម្បីបង្កើត Web Server សម្រាប់បោក Render
+from aiohttp import web
 
-    # 1. ដាក់បញ្ចូល Command Handlers
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("help", help_command))
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-    # 2. ដាក់បញ្ចូល Message Handlers (សម្រាប់ចាប់ Text messages ធម្មតា តែមិនមែនជា Commands ទេ)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_normal_message))
+# មុខងារស្វាគមន៍ពេល Render មកពិនិត្យមើល Port (Health Check)
+async def handle_health_check(request):
+    return web.Response(text="Bot is running successfully!")
 
-    # ចាប់ផ្តើមដំណើរការ Bot
-    print("🤖 Bot របស់ GS កំពុងដំណើរការហើយ... (ចុច Ctrl+C ដើម្បីបិទ)")
-    app.run_polling()
+async def main():
+    # ----------------------------------------------------
+    # ១. បង្កើត និងរត់ Web Server ស្ងាត់ៗនៅពីក្រោយខ្នង
+    # ----------------------------------------------------
+    app_web = web.Application()
+    app_web.router.add_get('/', handle_health_check)
+    
+    # ចាប់យក Port ពី Render (Render ផ្តល់ឱ្យតាមរយៈ Environment Variable ឈ្មោះ PORT)
+    port = int(os.environ.get("PORT", 8080))
+    runner = web.AppRunner(app_web)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    
+    # បើកដំណើរការ Web Server ចោល
+    asyncio.create_task(site.start())
+    print(f"📡 Fake Web Server started on port {port}")
+
+    # ----------------------------------------------------
+    # ២. បើកដំណើរការ Telegram Bot ទម្រង់ Polling ធម្មតា
+    # ----------------------------------------------------
+    print("🤖 Telegram Bot is starting...")
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    # បន្ថែម Handlers ដូចមុន
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(MessageHandler(filters.TEXT | filters.CONTACT, handle_normal_message))
+
+    # រត់ Bot រហូត
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()
+        
+        # រក្សាឱ្យកម្មវិធីរត់ទាំងពីរព្រមគ្នាដោយមិនបិទ
+        while True:
+            await asyncio.sleep(3600)
 
 if __name__ == "__main__":
-    main()
+    # រត់មុខងារ main តាមទម្រង់ Asyncio
+    asyncio.run(main())
