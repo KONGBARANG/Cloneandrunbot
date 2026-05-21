@@ -1,6 +1,12 @@
+import re
 import sqlite3
 from telegram import Update
 from telegram.ext import ContextTypes
+
+def normalize_phone_number(phone: str) -> str:
+    # Remove common separators and keep only digits
+    normalized = re.sub(r"[^0-9]", "", phone or "")
+    return normalized
 
 async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
@@ -57,7 +63,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
     # ========================================================
     if message.contact:
         contact_user_id = message.contact.user_id
-        phone_number = message.contact.phone_number.replace("+", "")
+        phone_number = normalize_phone_number(message.contact.phone_number)
         
         conn = sqlite3.connect("delivery_bot.db")
         cursor = conn.cursor()
@@ -67,7 +73,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         
         await message.reply_text(
             f"✅ ជោគជ័យ! បានកត់ត្រាលេខទូរសព្ទ `{phone_number}` រួចរាល់។\n"
-            "👉 សូមចុចចុចបញ្ជា `/start` ម្តងទៀតដើម្បីចូលទៅកាន់ទំព័រដើម។"
+            "👉 សូមចុចបញ្ជា `/start` ម្តងទៀតដើម្បីចូលទៅកាន់ទំព័រដើម។"
         )
         return
 
@@ -105,11 +111,17 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
     # ========================================================
     if "-" in text_received:
         parts = text_received.split("-", 1)
-        customer_phone = parts[0].strip().replace("+", "")
+        raw_phone = parts[0].strip()
+        customer_phone = normalize_phone_number(raw_phone)
         item_details = parts[1].strip()
         
-        if not customer_phone.isdigit() or len(customer_phone) < 8:
-            await message.reply_text("❌ ទម្រង់លេខទូរសព្ទមិនត្រូវទេ! សូមវាយម្តងទៀត (ឧទាហរណ៍៖ 012345678 - ឈ្មោះអីវ៉ាន់)")
+        if not customer_phone or len(customer_phone) < 8 or len(customer_phone) > 15:
+            await message.reply_text(
+                "❌ ទម្រង់លេខទូរសព្ទមិនត្រូវទេ! សូមវាយម្តងទៀតក្នុងទម្រង់ដូចជា: \n"
+                "012345678 - ឈ្មោះអីវ៉ាន់ \n"
+                "+855 71 448 4085 - ឈ្មោះអីវ៉ាន់ \n"
+                "071448085 - ឈ្មោះអីវ៉ាន់"
+            )
             return
             
         conn = sqlite3.connect("delivery_bot.db")
