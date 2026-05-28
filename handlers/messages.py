@@ -256,4 +256,4 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     # សារទូទៅ
-    await message.reply_text("💡 ដើម្បីបញ្ចូលអីវ៉ាន់ថ្មី សូមវាយទម្រង់៖ `លេខទូរសព្ទ - ឈ្មោះអី`")
+    await message.reply_text("💡 ដើម្បីបញ្ចូលអីវ៉ាន់ថ្មី សូមវាយទម្រង់៖ `លេខទូរសព្ទ - ឈ្មោះអីវ៉ាន់` \nឧទាហរណ៍៖ `012345678 - សៀវភៅ`")
