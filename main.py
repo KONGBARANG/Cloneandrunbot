@@ -22,7 +22,7 @@ async def main():
     app_web = web.Application()
     app_web.router.add_get('/', handle_health_check)
     
-    # ចាប់យក Port ពី Render (Render ផ្តល់ឱ្យតាមរយៈ Environment Variable ឈ្មោះ PORT)
+    # ចាប់យក Port  ពី Render (Render ផ្តល់ឱ្យតាមរយៈ Environment Variable ឈ្មោះ PORT)
     port = int(os.environ.get("PORT", 8080))
     runner = web.AppRunner(app_web)
     await runner.setup()
