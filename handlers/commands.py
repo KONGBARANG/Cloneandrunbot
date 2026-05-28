@@ -3,7 +3,7 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 
 # ========================================================
-# 1. បង្កើត និងរៀបចំ DATABASE (DATABASE SETUP) Net Update
+# 1. បង្កើត និងរៀបចំ DATABASE (DATABASE SETUP)
 # ========================================================
 def init_db():
     conn = sqlite3.connect("delivery_bot.db")
