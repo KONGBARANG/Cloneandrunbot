@@ -1,5 +1,4 @@
 import re
-import sqlite3
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 from config import settings as SETTINGS
@@ -22,7 +21,7 @@ def get_customer_summary(cursor, customer_id, customer_phone):
     customer_name = "អតិថិជន"
     customer_phone = customer_phone or "មិនមានលេខ"
     if customer_id:
-        cursor.execute("SELECT first_name, username, phone FROM users WHERE user_id = ?", (customer_id,))
+        cursor.execute("SELECT first_name, username, phone FROM users WHERE user_id = %s", (customer_id,))
         user_row = cursor.fetchone()
         if user_row:
             customer_name = user_row[0] or user_row[1] or "អតិថិជន"
@@ -46,7 +45,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         
         # ស្វែងរកការដឹកជញ្ជូនចុងក្រោយរបស់អតិថិជនម្នាក់នេះ ដើម្បីរកមើលថា Driver ណាជាអ្នកដឹក
         cursor.execute(
-            "SELECT dispatch_id, driver_id, item_details, customer_phone, customer_id FROM dispatches WHERE customer_id = ? ORDER BY dispatch_id DESC LIMIT 1", 
+            "SELECT dispatch_id, driver_id, item_details, customer_phone, customer_id FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1", 
             (user_id,)
         )
         delivery_data = cursor.fetchone()
@@ -56,7 +55,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
             customer_name, customer_phone = get_customer_summary(cursor, customer_id, customer_phone)
             
             # រក្សាទុកលីងទីតាំងចូល Database
-            cursor.execute("UPDATE dispatches SET customer_location = ? WHERE dispatch_id = ?", (google_map_url, dispatch_id))
+            cursor.execute("UPDATE dispatches SET customer_location = %s WHERE dispatch_id = %s", (google_map_url, dispatch_id))
             conn.commit()
             
             # ផ្ញើសារទៅប្រាប់អតិថិជនវិញ
@@ -103,10 +102,11 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         contact_user_id = message.contact.user_id
         phone_number = normalize_phone_number(message.contact.phone_number)
         
-        conn = sqlite3.connect("delivery_bot.db")
+        conn = SETTINGS.get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE users SET phone = ? WHERE user_id = ?", (phone_number, contact_user_id))
+        cursor.execute("UPDATE users SET phone = %s WHERE user_id = %s", (phone_number, contact_user_id))
         conn.commit()
+        cursor.close()
         conn.close()
         
         await message.reply_text(
@@ -140,10 +140,11 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     if text_received == "📦 ពិនិត្យមើលអីវ៉ាន់បច្ចុប្បន្ន":
-        conn = sqlite3.connect("delivery_bot.db")
+        conn = SETTINGS.get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT item_details, status, dispatch_date FROM dispatches WHERE customer_id = ? ORDER BY dispatch_id DESC LIMIT 1", (user_id,))
+        cursor.execute("SELECT item_details, status, dispatch_date FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1", (user_id,))
         active_delivery = cursor.fetchone()
+        cursor.close()
         conn.close()
         
         if active_delivery:
@@ -189,7 +190,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         phone_variant3 = f"0{customer_phone[3:]}" if customer_phone.startswith("855") else customer_phone
         
         cursor.execute(
-            "SELECT user_id, first_name FROM users WHERE phone IN (?, ?, ?)", 
+            "SELECT user_id, first_name FROM users WHERE phone IN (%s, %s, %s)", 
             (phone_variant1, phone_variant2, phone_variant3)
         )
         customer_data = cursor.fetchone()
@@ -197,7 +198,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         if customer_data:
             cust_id, cust_name = customer_data
             cursor.execute(
-                "INSERT INTO dispatches (driver_id, customer_phone, customer_id, item_details) VALUES (?, ?, ?, ?)",
+                "INSERT INTO dispatches (driver_id, customer_phone, customer_id, item_details) VALUES (%s, %s, %s, %s)",
                 (user_id, customer_phone, cust_id, item_details)
             )
             conn.commit()
@@ -225,12 +226,11 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
             await send_admin_notification(context, admin_text)
         else:
             cursor.execute(
-                "INSERT INTO dispatches (driver_id, customer_phone, item_details) VALUES (?, ?, ?)",
+                "INSERT INTO dispatches (driver_id, customer_phone, item_details) VALUES (%s, %s, %s) RETURNING dispatch_id",
                 (user_id, customer_phone, item_details)
             )
+            dispatch_id = cursor.fetchone()[0]
             conn.commit()
-            
-            dispatch_id = cursor.lastrowid
             bot_username = (await context.bot.get_me()).username
             invite_link = f"https://t.me/{bot_username}?start=dispatch_{dispatch_id}"
             

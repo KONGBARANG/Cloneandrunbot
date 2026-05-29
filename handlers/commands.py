@@ -1,14 +1,11 @@
-import os
-import psycopg2  # 🔥 ប្តូរពី sqlite3 មកប្រើ psycopg2 សម្រាប់ Online DB
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
+from config import settings as SETTINGS
 
-# ទាញយកលីងភ្ជាប់ URI ពី Environment Variables លើ Render
-DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
     # មុខងារសម្រាប់ភ្ជាប់ទៅកាន់ Online Cloud Database
-    return psycopg2.connect(DATABASE_URL)
+    return SETTINGS.get_db_connection()
 
 # ========================================================
 # 1. បង្កើត និងរៀបចំ DATABASE (SUPABASE POSTGRESQL SETUP)
