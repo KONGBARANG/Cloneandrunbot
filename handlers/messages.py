@@ -1,32 +1,16 @@
-import re
-from telegram import Update, ReplyKeyboardMarkup
+import os
+import psycopg2  # 🔥 ប្តូរពី sqlite3 មកប្រើ psycopg2 វិញដើម្បីភ្ជាប់ទៅ Cloud
+from dotenv import load_dotenv
+from telegram import Update
 from telegram.ext import ContextTypes
-from config import settings as SETTINGS
 
-def normalize_phone_number(phone: str) -> str:
-    # Remove common separators and keep only digits
-    normalized = re.sub(r"[^0-9]", "", phone or "")
-    return normalized
+# បញ្ជាឱ្យទាញយកទិន្នន័យពីហ្វាយ .env (សម្រាប់ពេលតេស្តលើកុំព្យូទ័រផ្ទាល់ខ្លួន)
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-async def send_admin_notification(context: ContextTypes.DEFAULT_TYPE, text: str):
-    if not SETTINGS.ADMIN_IDS:
-        return
-    for admin_id in SETTINGS.ADMIN_IDS:
-        try:
-            await context.bot.send_message(chat_id=admin_id, text=text)
-        except Exception:
-            pass
-
-def get_customer_summary(cursor, customer_id, customer_phone):
-    customer_name = "អតិថិជន"
-    customer_phone = customer_phone or "មិនមានលេខ"
-    if customer_id:
-        cursor.execute("SELECT first_name, username, phone FROM users WHERE user_id = %s", (customer_id,))
-        user_row = cursor.fetchone()
-        if user_row:
-            customer_name = user_row[0] or user_row[1] or "អតិថិជន"
-            customer_phone = user_row[2] or customer_phone
-    return customer_name, customer_phone
+def get_db_connection():
+    # មុខងារទាញខ្សែភ្ជាប់ទៅកាន់ Online Cloud Database
+    return psycopg2.connect(DATABASE_URL)
 
 async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
@@ -38,60 +22,43 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
     if message.location:
         lat = message.location.latitude
         lng = message.location.longitude
+        # បង្កើត Link Google Maps ដែលមានទម្រង់ត្រឹមត្រូវ
         google_map_url = f"https://www.google.com/maps?q={lat},{lng}"
         
-        conn = sqlite3.connect("delivery_bot.db")
+        conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ស្វែងរកការដឹកជញ្ជូនចុងក្រោយរបស់អតិថិជនម្នាក់នេះ ដើម្បីរកមើលថា Driver ណាជាអ្នកដឹក
+        # ស្វែងរកការដឹកជញ្ជូនចុងក្រោយរបស់អតិថិជនម្នាក់នេះ (ប្តូរ ? ទៅជា %s)
         cursor.execute(
-            "SELECT dispatch_id, driver_id, item_details, customer_phone, customer_id FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1", 
+            "SELECT dispatch_id, driver_id, item_details FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1", 
             (user_id,)
         )
         delivery_data = cursor.fetchone()
         
         if delivery_data:
-            dispatch_id, driver_id, item_details, customer_phone, customer_id = delivery_data
-            customer_name, customer_phone = get_customer_summary(cursor, customer_id, customer_phone)
+            dispatch_id, driver_id, item_details = delivery_data
             
-            # រក្សាទុកលីងទីតាំងចូល Database
+            # រក្សាទុកលីងទីតាំងចូល Online Database
             cursor.execute("UPDATE dispatches SET customer_location = %s WHERE dispatch_id = %s", (google_map_url, dispatch_id))
             conn.commit()
             
-            # ផ្ញើសារទៅប្រាប់អតិថិជនវិញ
             await message.reply_text("📍 ✅ ទីតាំងរបស់អ្នកត្រូវបានបញ្ជូនទៅកាន់អ្នកដឹកជញ្ជូនរួចរាល់ហើយ! សូមរង់ចាំបន្តិចណា។")
             
             # 🔥 ផ្ញើទីតាំង និងលីង Map ទៅកាន់ Telegram របស់អ្នកដឹកជញ្ជូន (Driver) ភ្លាមៗអូតូ
             try:
                 driver_text = (
-                    f"🔔 ⚡ Driver! អតិថិជន `{customer_name}` បានផ្ញើទីតាំងមកហើយ៖\n"
-                    f"📞 លេខទូរសព្ទ៖ {customer_phone}\n"
+                    f"🔔 ⚡ ហ្វ្រាំងៗ Driver! អតិថិជនបានផ្ញើទីតាំងមកហើយ៖\n"
                     f"📦 អីវ៉ាន់៖ `{item_details}`\n"
-                    f"📍 ផែនទី៖ {google_map_url}"
+                    f"📍 ទីតាំងនៅលើផែនទី៖ {google_map_url}"
                 )
                 await context.bot.send_message(chat_id=driver_id, text=driver_text)
                 await context.bot.send_location(chat_id=driver_id, latitude=lat, longitude=lng)
             except Exception:
                 pass
-
-            admin_text = (
-                f"📍 ការផ្ញើទីតាំងថ្មីពីអតិថិជន\n"
-                f"Dispatch ID: {dispatch_id}\n"
-                f"Driver ID: {driver_id}\n"
-                f"Customer: {customer_name}\n"
-                f"Phone: {customer_phone}\n"
-                f"Item: {item_details}\n"
-                f"Map: {google_map_url}"
-            )
-            await send_admin_notification(context, admin_text)
         else:
             await message.reply_text("❌ មិនអាចផ្ញើទីតាំងបានទេ ព្រោះប្រព័ន្ធរកមិនឃើញទិន្នន័យដឹកជញ្ជូនរបស់អ្នកឡើយ។")
-            admin_text = (
-                f"⚠️ អតិថិជន ID {user_id} បានផ្ញើទីតាំងមក ប៉ុន្តែមិនអាចរក dispatch បាន។\n"
-                f"Map: {google_map_url}"
-            )
-            await send_admin_notification(context, admin_text)
-        
+            
+        cursor.close()
         conn.close()
         return
 
@@ -100,10 +67,11 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
     # ========================================================
     if message.contact:
         contact_user_id = message.contact.user_id
-        phone_number = normalize_phone_number(message.contact.phone_number)
+        phone_number = message.contact.phone_number.replace("+", "")
         
-        conn = SETTINGS.get_db_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
+        # កែទម្រង់ Query ទៅជា %s សម្រាប់ PostgreSQL
         cursor.execute("UPDATE users SET phone = %s WHERE user_id = %s", (phone_number, contact_user_id))
         conn.commit()
         cursor.close()
@@ -111,36 +79,18 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         
         await message.reply_text(
             f"✅ ជោគជ័យ! បានកត់ត្រាលេខទូរសព្ទ `{phone_number}` រួចរាល់។\n"
-            "👉 សូមចុចបញ្ជា `/start` ម្តងទៀតដើម្បីចូលទៅកាន់ទំព័រដើម។"
+            "👉 សូមចុចវាយពាក្យបញ្ជា `/start` ម្តងទៀតដើម្បីចូលទៅកាន់ទំព័រដើម។"
         )
         return
 
     # ========================================================
-    # ៣. ករណីចុចប៊ូតុងអត្ថបទនៅលើ Keyboard
+    # ៣. ករណីចុចប៊ូតុងអត្ថបទនៅលើ Keyboard ធម្មតា
     # ========================================================
-    text_received = message.text.strip()
+    text_received = message.text.strip() if message.text else ""
     
-    # 🌟 មុខងារឆ្លាតវ័យ៖ ឆែកមើលអីវ៉ាន់បច្ចុប្បន្នសម្រាប់អតិថិជន
-    if text_received == "📍 ផ្ញើទីតាំង":
-        keyboard = [[{"text": "📍 ផ្ញើទីតាំង", "request_location": True}]]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-        await message.reply_text(
-            "📍 សូមចុចប៊ូតុងខាងក្រោមដើម្បីផ្ញើទីតាំងបច្ចុប្បន្នរបស់អ្នកទៅកាន់អ្នកដឹកជញ្ជូន។",
-            reply_markup=reply_markup
-        )
-        return
-
-    if text_received == "🧾 ស្កេនទំនិញ":
-        keyboard = [[{"text": "🧾 ស្កេនទំនិញ", "request_location": True}]]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-        await message.reply_text(
-            "🧾 សូមចុចប៊ូតុងខាងក្រោមដើម្បីផ្ញើទីតាំងស្កេនទំនិញរបស់អ្នក។",
-            reply_markup=reply_markup
-        )
-        return
-
+    # ឆែកមើលអីវ៉ាន់បច្ចុប្បន្នសម្រាប់អតិថិជន
     if text_received == "📦 ពិនិត្យមើលអីវ៉ាន់បច្ចុប្បន្ន":
-        conn = SETTINGS.get_db_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT item_details, status, dispatch_date FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1", (user_id,))
         active_delivery = cursor.fetchone()
@@ -149,11 +99,12 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         
         if active_delivery:
             status_emoji = "🚴" if active_delivery[1] == "កំពុងដឹកជញ្ជូន" else "✅"
+            formatted_date = active_delivery[2].strftime('%Y-%m-%d %H:%M') if active_delivery[2] else 'មិនច្បាស់'
             await message.reply_text(
                 f"📦 **ព័ត៌មានអីវ៉ាន់របស់អ្នក៖**\n"
                 f" ឈ្មោះអីវ៉ាន់៖ `{active_delivery[0]}`\n"
                 f" ស្ថានភាព៖ {status_emoji} `{active_delivery[1]}`\n"
-                f"📅 កាលបរិច្ឆេទ៖ {active_delivery[2]}"
+                f"📅 កាលបរិច្ឆេទ៖ {formatted_date}"
             )
         else:
             await message.reply_text("📦 ស្ថានភាព៖ មិនទាន់មានអីវ៉ាន់កំពុងដឹកមកជូនអ្នកឡើយទេបាទ។")
@@ -168,23 +119,17 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
     # ========================================================
     if "-" in text_received:
         parts = text_received.split("-", 1)
-        raw_phone = parts[0].strip()
-        customer_phone = normalize_phone_number(raw_phone)
+        customer_phone = parts[0].strip().replace("+", "")
         item_details = parts[1].strip()
         
-        if not customer_phone or len(customer_phone) < 8 or len(customer_phone) > 15:
-            await message.reply_text(
-                "❌ ទម្រង់លេខទូរសព្ទមិនត្រូវទេ! សូមវាយម្តងទៀតក្នុងទម្រង់ដូចជា: \n"
-                "012345678 - ឈ្មោះអីវ៉ាន់ \n"
-                "+855 71 448 4085 - ឈ្មោះអីវ៉ាន់ \n"
-                "071448085 - ឈ្មោះអីវ៉ាន់"
-            )
+        if not customer_phone.isdigit() or len(customer_phone) < 8:
+            await message.reply_text("❌ ទម្រង់លេខទូរសព្ទមិនត្រូវទេ! សូមវាយម្តងទៀត (ឧទាហរណ៍៖ 012345678 - ឈ្មោះអីវ៉ាន់)")
             return
             
-        conn = sqlite3.connect("delivery_bot.db")
+        conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 🌟 មុខងារឆ្លាតវ័យ៖ ស្វែងរកលេខទូរសព្ទបែបទំនើប (ឆែកទាំងទម្រង់មាន 0 និងមាន 855)
+        # ស្វែងរកលេខទូរសព្ទបែបឆ្លាតវៃ (ឆែកទាំងទម្រង់មាន 0 និងមាន 855)
         phone_variant1 = customer_phone
         phone_variant2 = f"855{customer_phone[1:]}" if customer_phone.startswith("0") else customer_phone
         phone_variant3 = f"0{customer_phone[3:]}" if customer_phone.startswith("855") else customer_phone
@@ -209,28 +154,23 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
                 notify_text = (
                     f"🔔 ជំរាបសួរ លោក/អ្នក {cust_name}!\n"
                     f"📦 អីវ៉ាន់របស់អ្នកគឺ `{item_details}` កំពុងត្រូវបានដឹកជញ្ជូនមកហើយ។\n\n"
-                    f"👇 សូមចុចប៊ូតុងខាងក្រោមដើម្បីផ្ញើទីតាំង 📍 ទៅកាន់អ្នកដឹកជញ្ជូនបាទ។"
+                    f"👇 សូមចុចប៊ូតុងខាងក្រោមដើម្បីផ្ញើទីតាំង 📍 ទៅកាន់អ្នកដឹកជញ្ជូនបាទបាទ។"
                 )
                 await context.bot.send_message(chat_id=cust_id, text=notify_text)
             except Exception:
                 await message.reply_text("⚠️ ប្រព័ន្ធមិនអាចផ្ញើសារទៅកាន់អតិថិជនបានទេ ព្រោះគាត់អាចនឹងបិទ Bot ចោល។")
-
-            admin_text = (
-                f"✅ ការបង្កើត dispatch ថ្មី\n"
-                f"Driver ID: {user_id}\n"
-                f"Customer: {cust_name}\n"
-                f"Phone: {customer_phone}\n"
-                f"Item: {item_details}\n"
-                f"Status: អតិថិជនចាស់"
-            )
-            await send_admin_notification(context, admin_text)
         else:
+            # ករណីរកមិនឃើញលេខទូរសព្ទ = អតិថិជនថ្មី (New User)
             cursor.execute(
-                "INSERT INTO dispatches (driver_id, customer_phone, item_details) VALUES (%s, %s, %s) RETURNING dispatch_id",
+                "INSERT INTO dispatches (driver_id, customer_phone, item_details) VALUES (%s, %s, %s)",
                 (user_id, customer_phone, item_details)
             )
-            dispatch_id = cursor.fetchone()[0]
             conn.commit()
+            
+            # ទាញយក ID ចុងក្រោយដែលទើបតែ Insert លើ PostgreSQL
+            cursor.execute("SELECT lastval()")
+            dispatch_id = cursor.fetchone()[0]
+            
             bot_username = (await context.bot.get_me()).username
             invite_link = f"https://t.me/{bot_username}?start=dispatch_{dispatch_id}"
             
@@ -240,20 +180,9 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
                 f"{invite_link}"
             )
             await message.reply_text(response_msg)
-
-            admin_text = (
-                f"✅ ការបង្កើត dispatch ថ្មី\n"
-                f"Driver ID: {user_id}\n"
-                f"Customer: អតិថិជនថ្មី\n"
-                f"Phone: {customer_phone}\n"
-                f"Item: {item_details}\n"
-                f"Status: អតិថិជនថ្មី\n"
-                f"Invite Link: {invite_link}"
-            )
-            await send_admin_notification(context, admin_text)
             
+        cursor.close()
         conn.close()
         return
 
-    # សារទូទៅ
-    await message.reply_text("💡 ដើម្បីបញ្ចូលអីវ៉ាន់ថ្មី សូមវាយទម្រង់៖ `លេខទូរសព្ទ - ឈ្មោះអីវ៉ាន់` \nឧទាហរណ៍៖ `012345678 - សៀវភៅ`")
+    await message.reply_text("💡 ដើម្បីបញ្ចូលអីវ៉ាន់ថ្មី សូមវាយទម្រង់៖ `លេខទូរសព្ទ - ឈ្មោះអីវ៉ាន់`")
