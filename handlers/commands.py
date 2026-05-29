@@ -4,7 +4,7 @@ from config import settings as SETTINGS
 
 
 def get_db_connection():
-    # មុខងារសម្រាប់ភ្ជាប់ទៅកាន់ Online Cloud Database
+    # មុខងារសម្រាប់ភ្ជាប់ទៅកាន់ Online Cloud Database តាមរយៈការហៅពី config
     return SETTINGS.get_db_connection()
 
 # ========================================================
@@ -77,7 +77,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # ឆែកមើលទិន្នន័យ User ក្នុង Online Database (ប្រើសញ្ញា %s ជំនួស ?)
+    # ឆែកមើលទិន្នន័យ User ក្នុង Online Database 
     cursor.execute("SELECT phone FROM users WHERE user_id = %s", (user_id,))
     user_data = cursor.fetchone()
 
@@ -116,11 +116,24 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cursor.execute("UPDATE dispatches SET customer_id = %s WHERE dispatch_id = %s", (user_id, int(dispatch_id)))
             conn.commit()
 
-        # ប្រសិនបើមានអីវ៉ាន់ដែល Driver ទើបតែបញ្ចូលសម្រាប់គាត់
-        cursor.execute(
-            "SELECT item_details, status FROM dispatches WHERE customer_id = %s OR customer_phone = %s ORDER BY dispatch_id DESC LIMIT 1", 
-            (user_id, phone_number)
-        )
+        # 🔥 កែសម្រួលថ្មី៖ ស្វែងរកអីវ៉ាន់ឱ្យមានសុវត្ថិភាព ការពារការជាន់ទិន្នន័យករណីមិនទាន់មានលេខទូរសព្ទ (Null Phone)
+        if phone_number:
+            # បង្កើតបំលែងលេខទូរសព្ទដើម្បីស្វែងរកឱ្យកាន់តែឆ្លាតវៃ (ទម្រង់ 012 និង 855)
+            phone_variant = f"855{phone_number[1:]}" if phone_number.startswith("0") else phone_number
+            phone_variant2 = f"0{phone_number[3:]}" if phone_number.startswith("855") else phone_number
+            
+            cursor.execute(
+                """SELECT item_details, status FROM dispatches 
+                   WHERE customer_id = %s OR customer_phone IN (%s, %s, %s) 
+                   ORDER BY dispatch_id DESC LIMIT 1""", 
+                (user_id, phone_number, phone_variant, phone_variant2)
+            )
+        else:
+            cursor.execute(
+                "SELECT item_details, status FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1", 
+                (user_id,)
+            )
+            
         active_delivery = cursor.fetchone()
 
         delivery_info = ""
@@ -198,7 +211,6 @@ async def track_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if active_delivery:
         status_emoji = "🚴" if active_delivery[1] == "កំពុងដឹកជញ្ជូន" else "✅"
-        # បំប្លែងទម្រង់ថ្ងៃខែឱ្យស្អាតសម្រាប់ PostgreSQL 
         formatted_date = active_delivery[2].strftime('%Y-%m-%d %H:%M') if active_delivery[2] else "មិនច្បាស់"
         await update.message.reply_text(
             f"📦 ព័ត៌មានតាមដានអីវ៉ាន់:\n"
@@ -207,4 +219,5 @@ async def track_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"កាលបរិច្ឆេទ៖ {formatted_date}"
         )
     else:
+        # 🔥 កែសម្រួលឱ្យត្រូវទម្រង់ Telegram Extension ជំនាន់ទី ២០
         await update.message.reply_text("📦 មិនមានការដឹកជញ្ជូនពេលនេះទេ។ សូមបញ្ចូលលេខទូរសព្ទ ហើយឈ្មោះអីវ៉ាន់របស់អតិថិជន។")

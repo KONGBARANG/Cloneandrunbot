@@ -1,19 +1,20 @@
 import os
-import psycopg2  # 🔥 ប្តូរពី sqlite3 មកប្រើ psycopg2 វិញដើម្បីភ្ជាប់ទៅ Cloud
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ContextTypes
 
-# បញ្ជាឱ្យទាញយកទិន្នន័យពីហ្វាយ .env (សម្រាប់ពេលតេស្តលើកុំព្យូទ័រផ្ទាល់ខ្លួន)
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+# 🔥 ហៅការទាញយក SETTINGS ពី config ដើម្បីទាញខ្សែភ្ជាប់ទៅកាន់ Supabase តែមួយ
+from config import settings as SETTINGS
 
 def get_db_connection():
     # មុខងារទាញខ្សែភ្ជាប់ទៅកាន់ Online Cloud Database
-    return psycopg2.connect(DATABASE_URL)
+    return SETTINGS.get_db_connection()
 
 async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
+    if not message:
+        return
+        
     user_id = message.from_user.id
     
     # ========================================================
@@ -28,7 +29,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ស្វែងរកការដឹកជញ្ជូនចុងក្រោយរបស់អតិថិជនម្នាក់នេះ (ប្តូរ ? ទៅជា %s)
+        # ស្វែងរកការដឹកជញ្ជូនចុងក្រោយរបស់អតិថិជនម្នាក់នេះ
         cursor.execute(
             "SELECT dispatch_id, driver_id, item_details FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1", 
             (user_id,)
@@ -153,8 +154,8 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
             try:
                 notify_text = (
                     f"🔔 ជំរាបសួរ លោក/អ្នក {cust_name}!\n"
-                    f"📦 អីវ៉ាន់របស់អ្នកគឺ `{item_details}` កំពុងត្រូវបានដឹកជញ្ជូនមកហើយ។\n\n"
-                    f"👇 សូមចុចប៊ូតុងខាងក្រោមដើម្បីផ្ញើទីតាំង 📍 ទៅកាន់អ្នកដឹកជញ្ជូនបាទបាទ។"
+                    f"📦 អីវ៉ាន់របស់អ្នកគឺ `{item_details}` កំពុងត្រូវបានដឹកជញ្ជូនមកហើយ。\n\n"
+                    f"👇 សូមចុចប៊ូតុងខាងក្រោមដើម្បីផ្ញើទីតាំង 📍 ទៅកាន់អ្នកដឹកជញ្ជូនបាទបាទ🏼"
                 )
                 await context.bot.send_message(chat_id=cust_id, text=notify_text)
             except Exception:
