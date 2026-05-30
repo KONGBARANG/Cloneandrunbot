@@ -2,7 +2,14 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from handlers.commands import start_command, help_command, share_location_command, scan_location_command, track_command
+from handlers.commands import (
+    init_db,
+    start_command,
+    help_command,
+    share_location_command,
+    scan_location_command,
+    track_command,
+)
 from handlers.messages import handle_normal_message
 
 # 🔥 ហៅការទាញយកការកំណត់ (Settings) ពី config មកប្រើ
@@ -40,6 +47,13 @@ async def main():
     # ----------------------------------------------------
     print("🤖 Telegram Bot is starting...")
     application = Application.builder().token(BOT_TOKEN).build()
+
+    # Initialize DB schema before starting the bot
+    try:
+        init_db()
+    except Exception as err:
+        print(f"⚠️ DB initialization warning: {err}")
+        print("The bot will continue starting, but database actions may fail until the connection is restored.")
 
     # បន្ថែម Handlers
     application.add_handler(CommandHandler("start", start_command))

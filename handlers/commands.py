@@ -55,10 +55,6 @@ def init_db():
     cursor.close()
     conn.close()
 
-# ដំណើរការបង្កើត Table ភ្លាមៗនៅលើ Supabase Cloud នៅពេលបើកកូដ
-init_db()
-
-
 # ========================================================
 # 2. មុខងារ COMMAND /START (ឆែកមើល OLD / NEW USER)
 # ========================================================
@@ -74,47 +70,55 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if args and args[0].startswith("dispatch_"):
         dispatch_id = args[0].replace("dispatch_", "")
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+    except Exception as err:
+        print(f"DB connection failed in /start: {err}")
+        await update.message.reply_text(
+            "⚠️ មិនអាចភ្ជាប់ទៅកាន់មូលដ្ឋានទិន្នន័យបានឡើយ។ សូមព្យាយាមម្តងទៀតក្រោយ។"
+        )
+        return
     
-    # ឆែកមើលទិន្នន័យ User ក្នុង Online Database 
-    cursor.execute("SELECT phone FROM users WHERE user_id = %s", (user_id,))
-    user_data = cursor.fetchone()
+    try:
+        # ឆែកមើលទិន្នន័យ User ក្នុង Online Database 
+        cursor.execute("SELECT phone FROM users WHERE user_id = %s", (user_id,))
+        user_data = cursor.fetchone()
 
-    # ករណីទី ១៖ រកមិនឃើញ ID = USER NEW (ចុះឈ្មោះគាត់ចូល Cloud)
-    if user_data is None:
-        cursor.execute(
-            "INSERT INTO users (user_id, username, first_name) VALUES (%s, %s, %s)",
-            (user_id, username, first_name)
-        )
-        conn.commit()
-        
-        # បើគាត់ចូលមកតាមលីងអីវ៉ាន់ ត្រូវរក្សាទុក ID គាត់ទៅក្នុងទិន្នន័យដឹកជញ្ជូននោះអូតូ
-        if dispatch_id:
-            cursor.execute("UPDATE dispatches SET customer_id = %s WHERE dispatch_id = %s", (user_id, int(dispatch_id)))
+        # ករណីទី ១៖ រកមិនឃើញ ID = USER NEW (ចុះឈ្មោះគាត់ចូល Cloud)
+        if user_data is None:
+            cursor.execute(
+                "INSERT INTO users (user_id, username, first_name) VALUES (%s, %s, %s)",
+                (user_id, username, first_name)
+            )
             conn.commit()
+            
+            # បើគាត់ចូលមកតាមលីងអីវ៉ាន់ ត្រូវរក្សាទុក ID គាត់ទៅក្នុងទិន្នន័យដឹកជញ្ជូននោះអូតូ
+            if dispatch_id:
+                cursor.execute("UPDATE dispatches SET customer_id = %s WHERE dispatch_id = %s", (user_id, int(dispatch_id)))
+                conn.commit()
 
-        welcome_text = (
-            f"👋 សួស្តីសមាជិកថ្មី លោក/អ្នក {first_name}! មកកាន់ប្រព័ន្ធដឹកជញ្ជូន GS។\n\n"
-            "🙏 ដើម្បីភាពងាយស្រួលក្នុងការទទួលទិន្នន័យអីវ៉ាន់ និងការទាក់ទងពីអ្នកដឹកជញ្ជូន "
-            "សូមចុចប៊ូតុងខាងក្រោមដើម្បីចែករំលែកលេខទូរសព្ទ ឬផ្ញើទីតាំងស្កេនទំនិញ។"
-        )
-        keyboard = [
-            [{"text": "📱 ចែកលេខទូរសព្ទ", "request_contact": True}],
-            [{"text": "📍 ផ្ញើទីតាំង", "request_location": True}],
-            [{"text": "📦 ពិនិត្យមើលអីវ៉ាន់បច្ចុប្បន្ន"}],
-            [{"text": "📞 ទាក់ទងភ្នាក់ងារផ្ទាល់"}]
-        ]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
-        await update.message.reply_text(welcome_text, reply_markup=reply_markup)
+            welcome_text = (
+                f"👋 សួស្តីសមាជិកថ្មី លោក/អ្នក {first_name}! មកកាន់ប្រព័ន្ធដឹកជញ្ជូន GS។\n\n"
+                "🙏 ដើម្បីភាពងាយស្រួលក្នុងការទទួលទិន្នន័យអីវ៉ាន់ និងការទាក់ទងពីអ្នកដឹកជញ្ជូន "
+                "សូមចុចប៊ូតុងខាងក្រោមដើម្បីចែករំលែកលេខទូរសព្ទ ឬផ្ញើទីតាំងស្កេនទំនិញ។"
+            )
+            keyboard = [
+                [{"text": "📱 ចែកលេខទូរសព្ទ", "request_contact": True}],
+                [{"text": "📍 ផ្ញើទីតាំង", "request_location": True}],
+                [{"text": "📦 ពិនិត្យមើលអីវ៉ាន់បច្ចុប្បន្ន"}],
+                [{"text": "📞 ទាក់ទងភ្នាក់ងារផ្ទាល់"}]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+            await update.message.reply_text(welcome_text, reply_markup=reply_markup)
 
-    # ករណីទី ២៖ រកឃើញ ID = USER OLD (អតិថិជនចាស់)
-    else:
-        phone_number = user_data[0]
-        
-        if dispatch_id:
-            cursor.execute("UPDATE dispatches SET customer_id = %s WHERE dispatch_id = %s", (user_id, int(dispatch_id)))
-            conn.commit()
+        # ករណីទី ២៖ រកឃើញ ID = USER OLD (អតិថិជនចាស់)
+        else:
+            phone_number = user_data[0]
+            
+            if dispatch_id:
+                cursor.execute("UPDATE dispatches SET customer_id = %s WHERE dispatch_id = %s", (user_id, int(dispatch_id)))
+                conn.commit()
 
         # 🔥 កែសម្រួលថ្មី៖ ស្វែងរកអីវ៉ាន់ឱ្យមានសុវត្ថិភាព ការពារការជាន់ទិន្នន័យករណីមិនទាន់មានលេខទូរសព្ទ (Null Phone)
         if phone_number:
@@ -160,9 +164,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text(welcome_text, reply_markup=reply_markup)
-
-    cursor.close()
-    conn.close()
+    except Exception as err:
+        print(f"DB query failed in /start: {err}")
+        await update.message.reply_text(
+            "⚠️ មានបញ្ហា Database ឥឡូវនេះ។ សូមព្យាយាមម្តងទៀតក្រោយ។"
+        )
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # ========================================================
@@ -199,15 +208,31 @@ async def track_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT item_details, status, dispatch_date FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1",
-        (user_id,)
-    )
-    active_delivery = cursor.fetchone()
-    cursor.close()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+    except Exception as err:
+        print(f"DB connection failed in /track: {err}")
+        await update.message.reply_text(
+            "⚠️ មិនអាចទាក់ទងទៅកាន់ Database បាន។ សូមព្យាយាមម្តងទៀតក្រោយ។"
+        )
+        return
+
+    try:
+        cursor.execute(
+            "SELECT item_details, status, dispatch_date FROM dispatches WHERE customer_id = %s ORDER BY dispatch_id DESC LIMIT 1",
+            (user_id,)
+        )
+        active_delivery = cursor.fetchone()
+    except Exception as err:
+        print(f"DB query failed in /track: {err}")
+        await update.message.reply_text(
+            "⚠️ មានបញ្ហា Database ឥឡូវនេះ។ សូមព្យាយាមម្តងទៀតក្រោយ។"
+        )
+        return
+    finally:
+        cursor.close()
+        conn.close()
     
     if active_delivery:
         status_emoji = "🚴" if active_delivery[1] == "កំពុងដឹកជញ្ជូន" else "✅"
