@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ContextTypes
 
-# 🔥 ហៅការទាញយក SETTINGS ពី config ដើម្បីទាញខ្សែភ្ជាប់ទៅកាន់ Supabase តែមួយ
+# 🔥 ហៅការទាញយក SETTINGS ពី config ដើម្បីទាញខ្សែភ្ជាប់ទៅកាន់ Supabase 
 from config import settings as SETTINGS
 
 def get_db_connection():
