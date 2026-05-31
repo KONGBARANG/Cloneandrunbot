@@ -163,7 +163,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
                 )
                 conn.commit()
                 
-                await message.reply_text(f"✅ អតិថិជនចាស់ឈ្មោះ {cust_name} មានក្នុងប្រព័ន្ធ!\n🚀 ប្រព័ន្ធបានផ្ញើសារដំណឹងទៅគាត់អូតូហើយ។")
+                await message.reply_text(f"✅ អតិថិជនចាស់ឈ្មោះ {cust_name} មានក្នុងប្រព័ន្ធ\n🚀 ប្រព័ន្ធបានផ្ញើសារដំណឹងទៅគាត់អូតូហើយ។")
                 
                 try:
                     notify_text = (
