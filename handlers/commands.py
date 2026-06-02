@@ -21,7 +21,7 @@ def init_db():
                 user_id INTEGER PRIMARY KEY,
                 username TEXT,
                 first_name TEXT,
-                phone TEXT DEFAULT NULL,
+                phone VARCHAR(32) DEFAULT NULL,
                 registered_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -29,8 +29,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS orders (
                 order_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
-                item_name TEXT,
-                status TEXT DEFAULT 'កំពុងរៀបចំ',
+                item_name VARCHAR(255),
+                status VARCHAR(64) DEFAULT 'កំពុងរៀបចំ',
                 order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(user_id) REFERENCES users(user_id)
             )
@@ -39,11 +39,11 @@ def init_db():
             CREATE TABLE IF NOT EXISTS dispatches (
                 dispatch_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 driver_id INTEGER,
-                customer_phone TEXT,
+                customer_phone VARCHAR(32),
                 customer_id INTEGER DEFAULT NULL,
                 item_details TEXT,
-                customer_location TEXT DEFAULT NULL,
-                status TEXT DEFAULT 'កំពុងដឹកជញ្ជូន',
+                customer_location VARCHAR(255) DEFAULT NULL,
+                status VARCHAR(64) DEFAULT 'កំពុងដឹកជញ្ជូន',
                 dispatch_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -53,7 +53,7 @@ def init_db():
                 user_id BIGINT PRIMARY KEY,
                 username TEXT,
                 first_name TEXT,
-                phone TEXT DEFAULT NULL,
+                phone VARCHAR(32) DEFAULT NULL,
                 registered_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -61,8 +61,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS orders (
                 order_id SERIAL PRIMARY KEY,
                 user_id BIGINT,
-                item_name TEXT,
-                status TEXT DEFAULT 'កំពុងរៀបចំ',
+                item_name VARCHAR(255),
+                status VARCHAR(64) DEFAULT 'កំពុងរៀបចំ',
                 order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(user_id) REFERENCES users(user_id)
             )
@@ -71,11 +71,11 @@ def init_db():
             CREATE TABLE IF NOT EXISTS dispatches (
                 dispatch_id SERIAL PRIMARY KEY,
                 driver_id BIGINT,
-                customer_phone TEXT,
+                customer_phone VARCHAR(32),
                 customer_id BIGINT DEFAULT NULL,
                 item_details TEXT,
-                customer_location TEXT DEFAULT NULL,
-                status TEXT DEFAULT 'កំពុងដឹកជញ្ជូន',
+                customer_location VARCHAR(255) DEFAULT NULL,
+                status VARCHAR(64) DEFAULT 'កំពុងដឹកជញ្ជូន',
                 dispatch_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)

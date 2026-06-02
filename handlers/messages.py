@@ -76,7 +76,7 @@ async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TY
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
-            # កែទម្រង់ Query ទៅជា %s សម្រាប់ PostgreSQL
+            # កែទម្រង់ Query ទៅជា %s សម្រាប់ MySQL
             SETTINGS.execute_query(cursor, "UPDATE users SET phone = %s WHERE user_id = %s", (phone_number, contact_user_id))
             conn.commit()
         finally:
