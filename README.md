@@ -2,7 +2,7 @@
 title: Global System
 emoji: 🚀
 colorFrom: blue
-colorTo: greeen
+colorTo: green
 sdk: docker
 pinned: false
 ---
