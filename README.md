@@ -1,5 +1,5 @@
 ---
-title: Global System
+title: Global System(GS)
 emoji: 🚀
 colorFrom: blue
 colorTo: green
