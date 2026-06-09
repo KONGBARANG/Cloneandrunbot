@@ -33,6 +33,9 @@ async def main():
     app_web = web.Application()
     app_web.router.add_get('/', handle_health_check)
     
+    # 🔥 ហៅមុខងារ setup_routes ពី dashboard.py មកប្រើនៅត្រង់នេះ
+    setup_routes(app_web)
+    
     # ចាប់យក Port ពី Render (Render ផ្តល់ឱ្យតាមរយៈ Environment Variable ឈ្មោះ PORT)
     port = int(os.environ.get("PORT", 8585))
     runner = web.AppRunner(app_web)
