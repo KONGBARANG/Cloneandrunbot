@@ -33,7 +33,7 @@ async def main():
     app_web.router.add_get('/', handle_health_check)
     
     # ចាប់យក Port ពី Render (Render ផ្តល់ឱ្យតាមរយៈ Environment Variable ឈ្មោះ PORT)
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8585))
     runner = web.AppRunner(app_web)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', port)
