@@ -2,6 +2,7 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from dashboard.dashboard import setup_routes
 from handlers.commands import (
     init_db,
     start_command,
