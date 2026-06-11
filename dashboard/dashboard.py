@@ -3,12 +3,12 @@ import platform
 import datetime
 from aiohttp import web
 
-_START_TIME = datetime.datetime.utcnow()
+_START_TIME = datetime.datetime.now(datetime.UTC)
 
 
 async def dashboard_page(request: web.Request) -> web.Response:
 		"""Return a simple HTML dashboard page with basic runtime info."""
-		uptime = datetime.datetime.utcnow() - _START_TIME
+		uptime = datetime.datetime.now(datetime.UTC) - _START_TIME
 		bot_token = os.environ.get("BOT_TOKEN") or os.environ.get("TOKEN") or ""
 		if bot_token:
 				masked = bot_token[:4] + "..." + bot_token[-4:] if len(bot_token) > 8 else "hidden"
@@ -51,14 +51,14 @@ async def dashboard_page(request: web.Request) -> web.Response:
 
 async def status_api(request: web.Request) -> web.Response:
 		"""Return a small JSON status useful for automated checks."""
-		uptime = datetime.datetime.utcnow() - _START_TIME
+		uptime = datetime.datetime.now(datetime.UTC) - _START_TIME
 		data = {
 				"service": "Global-System Bot",
 				"uptime": str(uptime).split('.')[0],
 				"python_version": platform.python_version(),
 				"host": platform.node(),
 				"port": int(os.environ.get("PORT", 8080)),
-				"time": datetime.datetime.utcnow().isoformat() + "Z",
+				"time": datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
 		}
 		return web.json_response(data)
 
