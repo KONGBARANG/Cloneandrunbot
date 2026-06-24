@@ -259,15 +259,6 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             if dispatch_data:
                 cust_id, item_details = dispatch_data
                 
-                if action == "status30":
-                    new_status = "ជិតដល់ហើយ (30%)"
-                    notify_text = (
-                        f"⏳ **ដំណឹងពីអ្នកដឹកជញ្ជូន (Driver)!**\n\n"
-                        f"អីវ៉ាន់របស់អ្នក៖ `{item_details}` គឺធ្វើដំណើរបានជិតដល់ហើយ (សល់ចម្ងាយប្រហែល 30% ទៀត)。\n"
-                        f"📊 ស្ថានភាព៖ ⏳ `ជិតដល់ហើយ (30%)`\n\n"
-                        f"📍 សូមលោកអ្នកត្រៀមខ្លួនទទួលអីវ៉ាន់បាទបាទ!"
-                    )
-                    confirm_msg = f"⏳ បានប្ដូរស្ថានភាពអីវ៉ាន់ ID: {dispatch_id} ទៅជា [ជិតដល់ហើយ (30%)] រួចរាល់!"
                 if action == "statusdeliv":
                     new_status = "កំពុងដឹកជញ្ជូន"
                     notify_text = (
@@ -277,34 +268,52 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
                         f"📍 សូមលោកអ្នកត្រៀមខ្លួនទទួលអីវ៉ាន់បាទបាទ!"
                     )
                     confirm_msg = f"🚴 បានប្ដូរស្ថានភាពអីវ៉ាន់ ID: {dispatch_id} ទៅជា [កំពុងដឹកជញ្ជូន] រួចរាល់"
+                    next_keyboard = [
+                        [
+                            InlineKeyboardButton("⏳ ជិតដល់ហើយ (30%)", callback_data=f"status30_{dispatch_id}"),
+                            InlineKeyboardButton("✅ ដឹកជញ្ជូនជោគជ័យ", callback_data=f"statusdone_{dispatch_id}")
+                        ]
+                    ]
+                    next_markup = InlineKeyboardMarkup(next_keyboard)
+                    
+                elif action == "status30":
+                    new_status = "ជិតដល់ហើយ (30%)"
+                    notify_text = (
+                        f"⏳ **ដំណឹងពីអ្នកដឹកជញ្ជូន (Driver)!**\n\n"
+                        f"អីវ៉ាន់របស់អ្នក៖ `{item_details}` គឺធ្វើដំណើរបានជិតដល់ហើយ (សល់ចម្ងាយប្រហែល 30% ទៀត)。\n"
+                        f"📊 ស្ថានភាព៖ ⏳ `ជិតដល់ហើយ (30%)`\n\n"
+                        f"📍 សូមលោកអ្នកត្រៀមខ្លួនទទួលអីវ៉ាន់បាទបាទ!"
+                    )
+                    confirm_msg = f"⏳ បានប្ដូរស្ថានភាពអីវ៉ាន់ ID: {dispatch_id} ទៅជា [ជិតដល់ហើយ (30%)] រួចរាល់!"
+                    next_keyboard = [
+                        [
+                            InlineKeyboardButton("✅ ដឹកជញ្ជូនជោគជ័យ", callback_data=f"statusdone_{dispatch_id}")
+                        ]
+                    ]
+                    next_markup = InlineKeyboardMarkup(next_keyboard)
                 
                 elif action == "statusdone":
                     new_status = "ដឹកជញ្ជូនជោគជ័យ"
                     notify_text = (
-                        f"📦 **ដំណឹងដឹកជញ្ជូនសប្បាយចត្ត!**\n\n"
+                        f"📦 **ដំណឹងដឹកជញ្ជូនសប្បាយចិត្ត!**\n\n"
                         f"អីវ៉ាន់របស់អ្នក៖ `{item_details}` ត្រូវបានប្រគល់ជូនរួចរាល់ហើយបាទ。\n"
                         f"📊 ស្ថានភាព៖ ✅ `ដឹកជញ្ជូនជោគជ័យ`\n\n"
                         f"🙏 អរគុណលោកអ្នកដែលបានប្រើប្រាស់សេវាកម្មប្រព័ន្ធដឹកជញ្ជូន GS!"
                     )
                     confirm_msg = f"✅ បានប្ដូរស្ថានភាពអីវ៉ាន់ ID: {dispatch_id} ទៅជា [ដឹកជញ្ជូនជោគជ័យ] រួចរាល់!"
+                    next_markup = None  # លុបប៊ូតុងចោលទាំងអស់នៅជំហានចុងក្រោយ
                 
+                # 💾 រក្សាទុកទិន្នន័យទៅកាន់ Database
                 SETTINGS.execute_query(cursor, "UPDATE dispatches SET status = %s WHERE dispatch_id = %s", (new_status, dispatch_id))
                 conn.commit()
                 
-                # await query.edit_message_text(
-                #     text=f"{query.message.text}\n\n⚙️ **បច្ចុប្បន្នភាព៖** {confirm_msg}",
-                #     reply_markup=query.message.reply_markup
-                # )
-                if action == "statusdone":
-                    await query.edit_message_text(
-                        text=f"{query.message.text}\n\n⚙️ **បច្ចុប្បន្នភាព៖** {confirm_msg}",
-                    )
-                else:
-                    await query.edit_message_text(
-                        text=f"{query.message.text}\n\n⚙️ **បច្ចុប្បន្នភាព៖** {confirm_msg}",
-                        reply_markup=query.message.reply_markup
-                    )
+                # 🖥️ កែប្រែផ្ទាំង Chat របស់ Driver តែមួយបន្ទាត់នេះគត់ (ដើម្បីផ្លាស់ប្តូរ ឬលុបប៊ូតុងតាមតម្លៃ next_markup)
+                await query.edit_message_text(
+                    text=f"{query.message.text}\n\n⚙️ **បច្ចុប្បន្នភាព៖** {confirm_msg}",
+                    reply_markup=next_markup
+                )
                 
+                # 🔔 ផ្ញើសារដំណឹងទៅកាន់អតិថិជន
                 if cust_id:
                     try:
                         await context.bot.send_message(chat_id=cust_id, text=notify_text)
