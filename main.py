@@ -3,7 +3,6 @@ import asyncio
 from dotenv import load_dotenv
 from flask import app
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from dashboard.dashboard import setup_routes
 
 from telegram.ext import CallbackQueryHandler # ត្រូវប្រាកដថាមាន CallbackQueryHandler នេះ
 from handlers.messages import handle_normal_message, handle_callback_query # 👈 បន្ថែម ", handle_callback_query" ត្រង់នេះ
@@ -38,8 +37,6 @@ async def main():
     app_web = web.Application()
     app_web.router.add_get('/', handle_health_check)
     
-    # 🔥 ហៅមុខងារ setup_routes ពី dashboard.py មកប្រើនៅត្រង់នេះ
-    setup_routes(app_web)
     
     # ចាប់យក Port ពី Render (Render ផ្តល់ឱ្យតាមរយៈ Environment Variable ឈ្មោះ PORT)
     port = int(os.environ.get("PORT", 8080))
